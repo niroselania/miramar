@@ -225,17 +225,26 @@ def upsert_expense(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Mes invalido")
     amount = money(payload.get("amount"))
     notes = str(payload.get("notes") or "").strip()
+    entries = [(year, month, amount)]
+
+    if category in ("EXPENSAS", "EDEA"):
+        next_year = year + 1 if month == 12 else year
+        next_month = 1 if month == 12 else month + 1
+        half_amount = amount / 2
+        entries = [(year, month, half_amount), (next_year, next_month, half_amount)]
+
     with db() as conn:
-        conn.execute(
-            """
-            INSERT INTO expenses (year, month, month_name, category, amount, notes, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(year, month, category)
-            DO UPDATE SET amount = excluded.amount, notes = excluded.notes, updated_at = excluded.updated_at
-            """,
-            (year, month, MONTHS[month - 1], category, amount, notes, now()),
-        )
-    return {"ok": True}
+        for entry_year, entry_month, entry_amount in entries:
+            conn.execute(
+                """
+                INSERT INTO expenses (year, month, month_name, category, amount, notes, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(year, month, category)
+                DO UPDATE SET amount = excluded.amount, notes = excluded.notes, updated_at = excluded.updated_at
+                """,
+                (entry_year, entry_month, MONTHS[entry_month - 1], category, entry_amount, notes, now()),
+            )
+    return {"ok": True, "split": len(entries) == 2}
 
 
 def delete_expense(expense_id: int) -> dict[str, Any]:
@@ -547,14 +556,14 @@ INDEX_HTML = r"""<!doctype html>
     qs("#expenseForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      await api("/api/expense", {
+      const saved = await api("/api/expense", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(form.entries())),
       });
       event.currentTarget.reset();
       qs('input[name="year"]').value = new Date().getFullYear();
-      setStatus("Gasto guardado.");
+      setStatus(saved.split ? "Gasto dividido y guardado en dos meses." : "Gasto guardado.");
       await load();
     });
 
