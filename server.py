@@ -442,7 +442,7 @@ INDEX_HTML = r"""<!doctype html>
       <h2>Cargar o actualizar gasto</h2>
       <div class="section-body">
         <form id="expenseForm" class="form-grid">
-          <label>Año<input name="year" type="number" min="2020" max="2100" value="2026"></label>
+          <label>Año<input name="year" type="number" min="2020" max="2100"></label>
           <label>Mes<select name="month" id="monthSelect"></select></label>
           <label>Concepto<select name="category" id="categorySelect"></select></label>
           <label>Importe<input name="amount" type="number" min="0" step="0.01" placeholder="0"></label>
@@ -496,10 +496,16 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     function fillSelects(data) {
+      const current = new Date();
+      const selectedMonth = qs("#monthSelect").value || String(current.getMonth() + 1);
+      const selectedCategory = qs("#categorySelect").value || (data.categories[0] || "");
+      const selectedYear = qs('input[name="year"]').value || String(current.getFullYear());
       categories = data.categories;
       qs("#monthSelect").innerHTML = months.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
       qs("#categorySelect").innerHTML = categories.map(c => `<option>${c}</option>`).join("");
-      if (data.years[0]) qs('input[name="year"]').value = data.years[0];
+      qs("#monthSelect").value = selectedMonth;
+      qs("#categorySelect").value = categories.includes(selectedCategory) ? selectedCategory : (categories[0] || "");
+      qs('input[name="year"]').value = selectedYear;
     }
 
     function renderMetrics(data) {
@@ -561,8 +567,8 @@ INDEX_HTML = r"""<!doctype html>
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(form.entries())),
       });
-      event.currentTarget.reset();
-      qs('input[name="year"]').value = new Date().getFullYear();
+      event.currentTarget.elements.amount.value = "";
+      event.currentTarget.elements.notes.value = "";
       setStatus(saved.split ? "Gasto dividido y guardado en dos meses." : "Gasto guardado.");
       await load();
     });
