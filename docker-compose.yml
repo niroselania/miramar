@@ -1,0 +1,17 @@
+services:
+  miramar-gastos:
+    build: .
+    container_name: miramar-gastos
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - miramar_data:/app/data
+    environment:
+      MIRAMAR_HOST: 0.0.0.0
+      MIRAMAR_PORT: 8765
+      MIRAMAR_DB: /app/data/miramar.db
+      MIRAMAR_EXPORT_DIR: /app/data/exports
+
+volumes:
+  miramar_data:

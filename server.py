@@ -21,8 +21,8 @@ else:
 
 
 APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "miramar.db"
-EXPORT_DIR = APP_DIR / "exports"
+DB_PATH = Path(os.environ.get("MIRAMAR_DB", APP_DIR / "miramar.db"))
+EXPORT_DIR = Path(os.environ.get("MIRAMAR_EXPORT_DIR", APP_DIR / "exports"))
 DEFAULT_EXCEL = Path(r"C:\Users\ARIEL-ROSETI\Downloads\Miramar\Servicio Miramar 2026.xlsx")
 
 MONTHS = [
@@ -51,6 +51,7 @@ def db() -> sqlite3.Connection:
 
 def init_db() -> None:
     EXPORT_DIR.mkdir(exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with db() as conn:
         conn.executescript(
             """

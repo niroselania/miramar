@@ -1,25 +1,31 @@
-# Miramar - gastos
+# Miramar Gastos
 
-App local para cargar, consultar y exportar los gastos mensuales de Miramar.
+App web simple para cargar, consultar y exportar gastos mensuales de Miramar.
 
-## Abrir
+## Deploy con Docker Compose
 
-La app esta corriendo en:
+Subir estos archivos a GitHub:
 
-http://127.0.0.1:8765/
+- `server.py`
+- `Dockerfile`
+- `docker-compose.yml`
+- `.gitignore`
+- `README.md`
 
-Para iniciarla otro dia, ejecutar `iniciar_miramar.bat` en esta carpeta y dejar esa ventana abierta mientras se usa la app.
+En Portainer o similar, elegir este repositorio y usar `docker-compose.yml` como compose file.
 
-## Que guarda
+La app queda disponible en:
 
-- Base SQLite: `miramar.db`
-- Exportaciones Excel: carpeta `exports`
-- Importa la planilla original desde `C:\Users\ARIEL-ROSETI\Downloads\Miramar\Servicio Miramar 2026.xlsx` si la base esta vacia.
+```text
+http://IP_DEL_SERVIDOR:8765
+```
 
-## Funciones
+## Datos
 
-- Cargar un Excel `.xlsx`.
-- Ver resumen mensual por concepto.
-- Agregar o actualizar gastos por mes, anio y categoria.
-- Borrar registros.
-- Exportar nuevamente a Excel.
+La base SQLite se guarda en el volumen Docker `miramar_data`, por eso no se pierde al reiniciar el contenedor.
+
+No subir a GitHub:
+
+- `miramar.db`
+- `exports/`
+- archivos `.log`
