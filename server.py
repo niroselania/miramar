@@ -50,7 +50,7 @@ def db() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    EXPORT_DIR.mkdir(exist_ok=True)
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with db() as conn:
         conn.executescript(
@@ -258,35 +258,47 @@ def export_xlsx() -> Path:
         raise RuntimeError(f"openpyxl no esta disponible: {OPENPYXL_ERROR}")
 
     data = get_dashboard()
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Miramar"
-    headers = ["Periodo", *CATEGORIES, "Total", "/2"]
-    ws.append(["Servicios Dpto"])
-    ws.append([])
-    ws.append(headers)
-
+    years = data["years"] or [datetime.now().year]
+    months_by_year = {
+        year: {month: {category: 0 for category in CATEGORIES} for month in range(1, 13)}
+        for year in years
+    }
     for item in data["months"]:
-        ws.append(
-            [
-                item["month_name"],
-                *[item["categories"].get(category, 0) for category in CATEGORIES],
-                item["total"],
-                item["half"],
-            ]
-        )
+        year = item["year"]
+        months_by_year.setdefault(year, {month: {category: 0 for category in CATEGORIES} for month in range(1, 13)})
+        months_by_year[year][item["month"]] = item["categories"]
 
-    total_row = ws.max_row + 2
-    ws.cell(total_row, 1, "Total")
-    for col in range(2, len(headers) + 1):
-        letter = openpyxl.utils.get_column_letter(col)
-        ws.cell(total_row, col, f"=SUM({letter}4:{letter}{ws.max_row - 2})")
+    wb = openpyxl.Workbook()
+    for sheet_index, year in enumerate(sorted(months_by_year)):
+        ws = wb.active if sheet_index == 0 else wb.create_sheet()
+        ws.title = f"Miramar {year}"
+        headers = ["Periodo", *CATEGORIES, "Total", "/2", "", "TOTAL 2 MESES"]
+        ws.append(["Servicios Dpto"])
+        ws.append([])
+        ws.append(headers)
 
-    for col in range(1, len(headers) + 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 16
-    for row in ws.iter_rows(min_row=3, max_row=ws.max_row, min_col=2, max_col=len(headers)):
-        for cell in row:
-            cell.number_format = '"$"#,##0'
+        for month in range(1, 13):
+            row_num = month + 3
+            values = months_by_year[year][month]
+            ws.append(
+                [
+                    MONTHS[month - 1],
+                    *[values.get(category, 0) or None for category in CATEGORIES],
+                    f"=SUM(B{row_num}:F{row_num})",
+                    f"=SUM(G{row_num}/2)",
+                    None,
+                    f"=SUM(H{row_num}:H{row_num + 1})" if month % 2 == 1 else None,
+                ]
+            )
+
+        widths = [16, 14, 14, 16, 16, 16, 14, 14, 5, 18]
+        for col, width in enumerate(widths, start=1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+        for row in ws.iter_rows(min_row=4, max_row=15, min_col=2, max_col=10):
+            for cell in row:
+                cell.number_format = '"$"#,##0'
+        for cell in ws[3]:
+            cell.font = openpyxl.styles.Font(bold=True)
 
     notes_ws = wb.create_sheet("inmobiliario")
     notes_ws.append(["Dato", "Detalle"])
@@ -296,6 +308,7 @@ def export_xlsx() -> Path:
     notes_ws.column_dimensions["B"].width = 60
 
     out = EXPORT_DIR / f"miramar_gastos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     wb.save(out)
     return out
 
@@ -636,7 +649,7 @@ class Handler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/data":
                 self.send_json(get_dashboard())
             elif parsed.path.startswith("/exports/"):
-                target = (APP_DIR / parsed.path.lstrip("/")).resolve()
+                target = (EXPORT_DIR / Path(parsed.path).name).resolve()
                 if not str(target).startswith(str(EXPORT_DIR.resolve())) or not target.exists():
                     raise FileNotFoundError("Archivo no encontrado")
                 data = target.read_bytes()
